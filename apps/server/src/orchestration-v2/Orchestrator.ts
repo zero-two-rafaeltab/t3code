@@ -1416,6 +1416,26 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         cause: `Thread ${command.threadId} worktree changed before the metadata update could be applied.`,
       });
     }
+    if (
+      (command.type === "thread.model-selection.set" || command.type === "provider.switch") &&
+      command.expectedModelSelection !== undefined &&
+      !modelSelectionsEqual(command.expectedModelSelection, thread.modelSelection)
+    ) {
+      return yield* new OrchestratorDispatchError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause: `Thread ${command.threadId} model selection changed before the partial selection update could be applied.`,
+      });
+    }
+    if (
+      (command.type === "thread.runtime-mode.set" && command.runtimeMode === thread.runtimeMode) ||
+      (command.type === "thread.interaction-mode.set" &&
+        command.interactionMode === thread.interactionMode) ||
+      ((command.type === "thread.model-selection.set" || command.type === "provider.switch") &&
+        modelSelectionsEqual(command.modelSelection, thread.modelSelection))
+    ) {
+      return;
+    }
     if (command.type === "thread.archive" && thread.archivedAt !== null) {
       return yield* new OrchestratorDispatchError({
         commandId: command.commandId,
@@ -1862,7 +1882,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             command.worktreePath !== undefined &&
             command.worktreePath !== thread.worktreePath
           ? projection.providerSessions.map((session) => session.id)
-          : command.type === "thread.runtime-mode.set"
+          : command.type === "thread.runtime-mode.set" && command.runtimeMode !== thread.runtimeMode
             ? projection.providerSessions
                 .filter(
                   (session) => !session.capabilities.sessions.supportsRuntimeModeSwitchInSession,
@@ -6909,7 +6929,11 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
 
     const plan = yield* dispatchOnce(command).pipe(
       Effect.flatMap((planned) =>
-        planned.events.length > 0
+        planned.events.length > 0 ||
+        command.type === "thread.runtime-mode.set" ||
+        command.type === "thread.interaction-mode.set" ||
+        command.type === "thread.model-selection.set" ||
+        command.type === "provider.switch"
           ? Effect.succeed(planned)
           : Effect.fail(
               new OrchestratorDispatchError({

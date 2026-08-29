@@ -2112,6 +2112,8 @@ export const OrchestrationV2Command = Schema.Union([
     commandId: CommandId,
     threadId: ThreadId,
     modelSelection: ModelSelection,
+    /** Reject this partial-selection write if the thread changed since it was resolved. */
+    expectedModelSelection: Schema.optional(ModelSelection),
   }),
   Schema.Struct({
     type: Schema.Literal("provider-session.detach"),
@@ -2289,6 +2291,8 @@ export const OrchestrationV2Command = Schema.Union([
     commandId: CommandId,
     threadId: ThreadId,
     modelSelection: ModelSelection,
+    /** Reject this partial-selection write if the thread changed since it was resolved. */
+    expectedModelSelection: Schema.optional(ModelSelection),
   }),
 ]);
 export type OrchestrationV2Command = typeof OrchestrationV2Command.Type;
